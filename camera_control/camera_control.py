@@ -11,30 +11,36 @@ class Camera:
         self.image_dir = image_dir
         
     def camera_process(self, camera_on, conn):
-        cap = cv2.VideoCapture(0)
+        self.cap = cv2.VideoCapture(0)
 
         while camera_on.value:
-            ret, frame = cap.read()
+            ret, frame = self.cap.read()
             if not ret:
                 break
             conn.send(frame)
             time.sleep(0.01)
 
-        cap.release()
+        self.cap.release()
         
     def initialize_camera(self):
         self.camera_on = Value('i', 1)
         self.parent_conn, child_conn = Pipe()
         self.p = Process(target=self.camera_process, args=(self.camera_on, child_conn))
         self.p.start()
+        while np.all(self.get_frame() == 0):
+            pass
         print("Camera initialized")
         
     def stop(self):
         self.camera_on.value = 0
-        self.p.join()
+        self.p.terminate()
         
     def get_frame(self):
         return self.parent_conn.recv()
+    
+    def save_image(self, filename):
+        cv2.imwrite(self.image_dir + filename, self.get_frame())
+        print("Image saved")
         
     def get_position(self):
         frame = self.get_frame()
